@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <pthread.h>
+
+#define MAX_THREADS 32
 
 double c_x_min;
 double c_x_max;
@@ -39,6 +42,15 @@ int colors[17][3] = {
                         {106, 52, 3},
                         {16, 16, 16},
                     };
+
+typedef struct i_pos {
+	int x_min;
+    int x_max;
+    int y_min;
+    int y_max;
+} i_pos;
+
+pthread_t l_threads[MAX_THREADS];
 
 void allocate_image_buffer(){
     int rgb_size = 3;
@@ -94,7 +106,7 @@ void update_rgb_buffer(int iteration, int x, int y){
 
 void write_to_file(){
     FILE * file;
-    char * filename               = "output.ppm";
+    char * filename               = "output_pth.ppm";
     char * comment                = "# ";
 
     int max_color_component_value = 255;
@@ -111,7 +123,9 @@ void write_to_file(){
     fclose(file);
 };
 
-void compute_mandelbrot(){
+void *compute_mandelbrot_parcial (void *pos) {
+    //Pos contém a posição do buffer que a thread está e até onde deverá ir
+    
     double z_x;
     double z_y;
     double z_x_squared;
@@ -121,18 +135,33 @@ void compute_mandelbrot(){
     int iteration;
     int i_x;
     int i_y;
+    int i_x_min_thread;
+    int i_x_max_thread;
+    int i_y_min_thread;
+    int i_y_max_thread;
 
     double c_x;
     double c_y;
 
-    for(i_y = 0; i_y < i_y_max; i_y++){
+    i_pos *i_atual;
+
+    i_atual = (i_pos *)pos;
+
+    i_x_min_thread = i_atual->x_min;
+    i_x_max_thread = i_atual->x_max;
+    i_y_min_thread = i_atual->y_min;
+    i_y_max_thread = i_atual->y_max;
+
+    fprintf(stderr, "Eu começo em %d e termino em %d\n", i_y_min_thread, i_y_max_thread);
+    long int count = 0;
+    for(i_y = i_y_min_thread; i_y < i_y_max_thread; i_y++){
         c_y = c_y_min + i_y * pixel_height;
 
         if(fabs(c_y) < pixel_height / 2){
             c_y = 0.0;
         };
 
-        for(i_x = 0; i_x < i_x_max; i_x++){
+        for(i_x = i_x_min_thread; i_x < i_x_max_thread; i_x++){
             c_x         = c_x_min + i_x * pixel_width;
 
             z_x         = 0.0;
@@ -145,6 +174,7 @@ void compute_mandelbrot(){
                 iteration < iteration_max && \
                 ((z_x_squared + z_y_squared) < escape_radius_squared);
                 iteration++){
+
                 z_y         = 2 * z_x * z_y + c_y;
                 z_x         = z_x_squared - z_y_squared + c_x;
 
@@ -153,8 +183,30 @@ void compute_mandelbrot(){
             };
 
             update_rgb_buffer(iteration, i_x, i_y);
+            count++;
         };
     };
+    fprintf(stderr, "Eu executei update %ld vezes\n", count);
+    pthread_exit(NULL);
+};
+
+void compute_mandelbrot(unsigned int threads){
+
+    i_pos l_pos[MAX_THREADS];
+
+    for (int i = 0; i < threads; i++) {
+		l_pos[i].x_max = i_x_max;
+		l_pos[i].x_min = 0;
+		l_pos[i].y_max = (i+1)*(i_y_max/threads);
+        if (i+1 == threads)
+            l_pos[i].y_max = i_y_max;
+		l_pos[i].y_min = i*(i_y_max/threads);
+		pthread_create(&l_threads[i], NULL, compute_mandelbrot_parcial, (void*)&l_pos[i]);
+	};
+	//Aqui falta a espera até as thread terminarem
+	for (int i = 0; i < threads; i++) {
+		pthread_join(l_threads[i], NULL);
+	};
 };
 
 int main(int argc, char *argv[]){
@@ -162,7 +214,11 @@ int main(int argc, char *argv[]){
 
     allocate_image_buffer();
 
-    compute_mandelbrot();
+    /*Paralelização tem que acontecer aqui*/
+
+    compute_mandelbrot(8);
+
+    /*Até aqui*/
 
     write_to_file();
 
