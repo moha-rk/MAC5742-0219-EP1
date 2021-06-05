@@ -124,7 +124,7 @@ void write_to_file(){
 };
 
 void *compute_mandelbrot_parcial (void *pos) {
-    //Pos contém a posição do buffer que a thread está e até onde deverá ir
+    //pos contém a posição do buffer que a thread está e até onde deverá ir
     
     double z_x;
     double z_y;
@@ -152,7 +152,6 @@ void *compute_mandelbrot_parcial (void *pos) {
     i_y_min_thread = i_atual->y_min;
     i_y_max_thread = i_atual->y_max;
 
-    fprintf(stderr, "Eu começo em %d e termino em %d\n", i_y_min_thread, i_y_max_thread);
     long int count = 0;
     for(i_y = i_y_min_thread; i_y < i_y_max_thread; i_y++){
         c_y = c_y_min + i_y * pixel_height;
@@ -186,7 +185,6 @@ void *compute_mandelbrot_parcial (void *pos) {
             count++;
         };
     };
-    fprintf(stderr, "Eu executei update %ld vezes\n", count);
     pthread_exit(NULL);
 };
 
@@ -201,24 +199,25 @@ void compute_mandelbrot(unsigned int threads){
         if (i+1 == threads)
             l_pos[i].y_max = i_y_max;
 		l_pos[i].y_min = i*(i_y_max/threads);
+
 		pthread_create(&l_threads[i], NULL, compute_mandelbrot_parcial, (void*)&l_pos[i]);
 	};
-	//Aqui falta a espera até as thread terminarem
+	
 	for (int i = 0; i < threads; i++) {
 		pthread_join(l_threads[i], NULL);
 	};
 };
 
 int main(int argc, char *argv[]){
+    int n_threads;
+
     init(argc, argv);
 
     allocate_image_buffer();
 
-    /*Paralelização tem que acontecer aqui*/
+    n_threads = 16;
 
-    compute_mandelbrot(8);
-
-    /*Até aqui*/
+    compute_mandelbrot(n_threads);
 
     write_to_file();
 
