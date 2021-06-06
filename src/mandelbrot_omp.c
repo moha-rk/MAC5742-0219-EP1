@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <omp.h>
+
+#define CHUNKSIZE 10
 
 double c_x_min;
 double c_x_max;
@@ -125,7 +128,15 @@ void compute_mandelbrot(int nthreads){
     double c_x;
     double c_y;
 
-    #pragma omp parallel for num_threads(nthreads)
+    int chunk;
+
+    chunk = CHUNKSIZE;
+
+    #pragma omp parallel for              \
+        private(z_x, z_y, z_x_squared,    \
+        z_y_squared, iteration, i_x, i_y, \
+        c_x, c_y) num_threads(nthreads)   \
+        default(shared) schedule(static, chunk)
     for(i_y = 0; i_y < i_y_max; i_y++){
         c_y = c_y_min + i_y * pixel_height;
 
@@ -165,7 +176,7 @@ int main(int argc, char *argv[]){
 
     allocate_image_buffer();
 
-    nthreads = 16;
+    nthreads = 1;
     compute_mandelbrot(nthreads);
 
     write_to_file();
