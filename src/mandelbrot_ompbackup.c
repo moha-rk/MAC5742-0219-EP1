@@ -113,28 +113,28 @@ void write_to_file(){
 };
 
 void compute_mandelbrot(int nthreads){
-    double z_x;
-    double z_y;
-    double z_x_squared;
-    double z_y_squared;
+
     double escape_radius_squared = 4;
 
-    int iteration;
-    int i_x;
-    int i_y;
-
-    int i_y_min_thread;
-    int i_y_max_thread;
-
-    double c_x;
-    double c_y;
-
-    int tid;
-
-    #pragma omp parallel private(z_x, z_y, z_x_squared, z_y_squared, iteration, \
-                                i_x, i_y, i_y_min_thread, i_y_max_thread, c_x, c_y, tid)  \
-                                default(shared) num_threads(nthreads)
+    #pragma omp parallel default(shared) num_threads(nthreads)
     {
+        double z_x;
+        double z_y;
+        double z_x_squared;
+        double z_y_squared;
+
+        int iteration;
+        int i_x;
+        int i_y;
+
+        int i_y_min_thread;
+        int i_y_max_thread;
+
+        double c_x;
+        double c_y;
+
+        int tid;
+
         tid = omp_get_thread_num();
 
         i_y_min_thread = tid*(i_y_max/nthreads);
@@ -177,11 +177,14 @@ void compute_mandelbrot(int nthreads){
 };
 
 int main(int argc, char *argv[]){
+    int nthreads;
+
     init(argc, argv);
 
     allocate_image_buffer();
 
-    compute_mandelbrot(8);
+    nthreads = 1;
+    compute_mandelbrot(nthreads);
 
     write_to_file();
 
