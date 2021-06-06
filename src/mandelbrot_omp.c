@@ -111,7 +111,7 @@ void write_to_file(){
     fclose(file);
 };
 
-void compute_mandelbrot(){
+void compute_mandelbrot(int nthreads){
     double z_x;
     double z_y;
     double z_x_squared;
@@ -125,7 +125,7 @@ void compute_mandelbrot(){
     double c_x;
     double c_y;
 
-    #pragma omp parallel for 
+    #pragma omp parallel for num_threads(nthreads)
     for(i_y = 0; i_y < i_y_max; i_y++){
         c_y = c_y_min + i_y * pixel_height;
 
@@ -159,11 +159,14 @@ void compute_mandelbrot(){
 };
 
 int main(int argc, char *argv[]){
+    int nthreads;
+
     init(argc, argv);
 
     allocate_image_buffer();
 
-    compute_mandelbrot();
+    nthreads = 16;
+    compute_mandelbrot(nthreads);
 
     write_to_file();
 
