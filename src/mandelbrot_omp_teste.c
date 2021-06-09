@@ -1,9 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <pthread.h>
+#include <omp.h>
+#include <time.h>
 
-#define MAX_THREADS 32
+#define CHUNKSIZE 10
 
 double c_x_min;
 double c_x_max;
@@ -43,15 +44,6 @@ int colors[17][3] = {
                         {16, 16, 16},
                     };
 
-typedef struct i_pos {
-	int x_min;
-    int x_max;
-    int y_min;
-    int y_max;
-} i_pos;
-
-pthread_t l_threads[MAX_THREADS];
-
 void allocate_image_buffer(){
     int rgb_size = 3;
     image_buffer = (unsigned char **) malloc(sizeof(unsigned char *) * image_buffer_size);
@@ -61,14 +53,14 @@ void allocate_image_buffer(){
     };
 };
 
-void init(int argc, char *argv[]){
-    if(argc < 6){
-        printf("usage: ./mandelbrot_pth c_x_min c_x_max c_y_min c_y_max image_size\n");
+void init(int argc, char *argv[], int *nthreads){
+    if(argc < 7){
+        printf("usage: ./mandelbrot_omp c_x_min c_x_max c_y_min c_y_max image_size nthreads\n");
         printf("examples with image_size = 11500:\n");
-        printf("    Full Picture:         ./mandelbrot_pth -2.5 1.5 -2.0 2.0 11500\n");
-        printf("    Seahorse Valley:      ./mandelbrot_pth -0.8 -0.7 0.05 0.15 11500\n");
-        printf("    Elephant Valley:      ./mandelbrot_pth 0.175 0.375 -0.1 0.1 11500\n");
-        printf("    Triple Spiral Valley: ./mandelbrot_pth -0.188 -0.012 0.554 0.754 11500\n");
+        printf("    Full Picture:         ./mandelbrot_omp -2.5 1.5 -2.0 2.0 11500 8\n");
+        printf("    Seahorse Valley:      ./mandelbrot_omp -0.8 -0.7 0.05 0.15 11500 8\n");
+        printf("    Elephant Valley:      ./mandelbrot_omp 0.175 0.375 -0.1 0.1 11500 8\n");
+        printf("    Triple Spiral Valley: ./mandelbrot_omp -0.188 -0.012 0.554 0.754 11500 8\n");
         exit(0);
     }
     else{
@@ -77,6 +69,8 @@ void init(int argc, char *argv[]){
         sscanf(argv[3], "%lf", &c_y_min);
         sscanf(argv[4], "%lf", &c_y_max);
         sscanf(argv[5], "%d", &image_size);
+        sscanf(argv[6], "%d", nthreads);
+
 
         i_x_max           = image_size;
         i_y_max           = image_size;
@@ -123,9 +117,7 @@ void write_to_file(){
     fclose(file);
 };
 
-void *compute_mandelbrot_parcial (void *pos) {
-    //pos contém a posição do buffer que a thread está e até onde deverá ir
-    
+void compute_mandelbrot(int nthreads){
     double z_x;
     double z_y;
     double z_x_squared;
@@ -135,32 +127,27 @@ void *compute_mandelbrot_parcial (void *pos) {
     int iteration;
     int i_x;
     int i_y;
-    int i_x_min_thread;
-    int i_x_max_thread;
-    int i_y_min_thread;
-    int i_y_max_thread;
 
     double c_x;
     double c_y;
 
-    i_pos *i_atual;
+    int chunk;
 
-    i_atual = (i_pos *)pos;
+    chunk = CHUNKSIZE;
 
-    i_x_min_thread = i_atual->x_min;
-    i_x_max_thread = i_atual->x_max;
-    i_y_min_thread = i_atual->y_min;
-    i_y_max_thread = i_atual->y_max;
-
-    long int count = 0;
-    for(i_y = i_y_min_thread; i_y < i_y_max_thread; i_y++){
+    #pragma omp parallel for              \
+        private(z_x, z_y, z_x_squared,    \
+        z_y_squared, iteration, i_x, i_y, \
+        c_x, c_y) num_threads(nthreads)   \
+        default(shared) schedule(static, chunk)
+    for(i_y = 0; i_y < i_y_max; i_y++){
         c_y = c_y_min + i_y * pixel_height;
 
         if(fabs(c_y) < pixel_height / 2){
             c_y = 0.0;
         };
 
-        for(i_x = i_x_min_thread; i_x < i_x_max_thread; i_x++){
+        for(i_x = 0; i_x < i_x_max; i_x++){
             c_x         = c_x_min + i_x * pixel_width;
 
             z_x         = 0.0;
@@ -173,7 +160,6 @@ void *compute_mandelbrot_parcial (void *pos) {
                 iteration < iteration_max && \
                 ((z_x_squared + z_y_squared) < escape_radius_squared);
                 iteration++){
-
                 z_y         = 2 * z_x * z_y + c_y;
                 z_x         = z_x_squared - z_y_squared + c_x;
 
@@ -182,46 +168,36 @@ void *compute_mandelbrot_parcial (void *pos) {
             };
 
             update_rgb_buffer(iteration, i_x, i_y);
-            count++;
         };
     };
-    pthread_exit(NULL);
 };
 
-void compute_mandelbrot(unsigned int threads){
-
-    i_pos l_pos[MAX_THREADS];
-
-    for (int i = 0; i < threads; i++) {
-		l_pos[i].x_max = i_x_max;
-		l_pos[i].x_min = 0;
-		l_pos[i].y_max = (i+1)*(i_y_max/threads);
-
-        if (i+1 == threads)
-            l_pos[i].y_max = i_y_max;
-            
-		l_pos[i].y_min = i*(i_y_max/threads);
-
-		pthread_create(&l_threads[i], NULL, compute_mandelbrot_parcial, (void*)&l_pos[i]);
-	};
-	
-	for (int i = 0; i < threads; i++) {
-		pthread_join(l_threads[i], NULL);
-	};
-};
+static double rtclock() {
+  struct timespec t;
+  clock_gettime(CLOCK_REALTIME, &t);
+  return t.tv_sec + t.tv_nsec * 1e-9;
+}
 
 int main(int argc, char *argv[]){
     int n_threads;
 
-    init(argc, argv);
+    double a = rtclock();
+    init(argc, argv, &n_threads);
 
     allocate_image_buffer();
 
-    n_threads = 32;
+    double b = rtclock();
 
     compute_mandelbrot(n_threads);
 
-    //write_to_file();
+    double c = rtclock();
+    
+    write_to_file();
+    
+    double d = rtclock();
+
+    //t1 = alocação, t2 = apenas computar, t3 = tempo total
+    printf("%lf, %lf, %lf\n", (b - a) + (d - c), c - b, d - a);
 
     return 0;
 };

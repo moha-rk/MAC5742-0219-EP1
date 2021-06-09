@@ -176,10 +176,10 @@ int main(int argc, char *argv[]){
 
     allocate_image_buffer();
 
-    nthreads = 1;
+    nthreads = 32;
     compute_mandelbrot(nthreads);
 
-    write_to_file();
+    //write_to_file();
 
     return 0;
 };
