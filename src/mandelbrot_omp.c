@@ -179,7 +179,7 @@ int main(int argc, char *argv[]){
     nthreads = 32;
     compute_mandelbrot(nthreads);
 
-    //write_to_file();
+    write_to_file();
 
     return 0;
 };

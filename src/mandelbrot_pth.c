@@ -221,7 +221,7 @@ int main(int argc, char *argv[]){
 
     compute_mandelbrot(n_threads);
 
-    //write_to_file();
+    write_to_file();
 
     return 0;
 };
