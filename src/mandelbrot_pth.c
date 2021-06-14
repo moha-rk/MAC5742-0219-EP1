@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <pthread.h>
+#include <time.h>
 
 #define MAX_THREADS 32
 
@@ -61,14 +62,14 @@ void allocate_image_buffer(){
     };
 };
 
-void init(int argc, char *argv[]){
-    if(argc < 6){
-        printf("usage: ./mandelbrot_pth c_x_min c_x_max c_y_min c_y_max image_size\n");
+void init(int argc, char *argv[], int *nthreads){
+    if(argc < 7){
+        printf("usage: ./mandelbrot_pth c_x_min c_x_max c_y_min c_y_max image_size nthreads\n");
         printf("examples with image_size = 11500:\n");
-        printf("    Full Picture:         ./mandelbrot_pth -2.5 1.5 -2.0 2.0 11500\n");
-        printf("    Seahorse Valley:      ./mandelbrot_pth -0.8 -0.7 0.05 0.15 11500\n");
-        printf("    Elephant Valley:      ./mandelbrot_pth 0.175 0.375 -0.1 0.1 11500\n");
-        printf("    Triple Spiral Valley: ./mandelbrot_pth -0.188 -0.012 0.554 0.754 11500\n");
+        printf("    Full Picture:         ./mandelbrot_pth -2.5 1.5 -2.0 2.0 11500 8\n");
+        printf("    Seahorse Valley:      ./mandelbrot_pth -0.8 -0.7 0.05 0.15 11500 8\n");
+        printf("    Elephant Valley:      ./mandelbrot_pth 0.175 0.375 -0.1 0.1 11500 8\n");
+        printf("    Triple Spiral Valley: ./mandelbrot_pth -0.188 -0.012 0.554 0.754 11500 8\n");
         exit(0);
     }
     else{
@@ -77,6 +78,8 @@ void init(int argc, char *argv[]){
         sscanf(argv[3], "%lf", &c_y_min);
         sscanf(argv[4], "%lf", &c_y_max);
         sscanf(argv[5], "%d", &image_size);
+        sscanf(argv[6], "%d", nthreads);
+
 
         i_x_max           = image_size;
         i_y_max           = image_size;
@@ -210,18 +213,32 @@ void compute_mandelbrot(unsigned int threads){
 	};
 };
 
+static double rtclock() {
+  struct timespec t;
+  clock_gettime(CLOCK_REALTIME, &t);
+  return t.tv_sec + t.tv_nsec * 1e-9;
+}
+
 int main(int argc, char *argv[]){
     int n_threads;
 
-    init(argc, argv);
+    double a = rtclock();
+    init(argc, argv, &n_threads);
 
     allocate_image_buffer();
 
-    n_threads = 32;
+    double b = rtclock();
 
     compute_mandelbrot(n_threads);
 
+    double c = rtclock();
+    
     write_to_file();
+    
+    double d = rtclock();
+
+    //t1 = alocação, t2 = apenas computar, t3 = tempo total
+    //printf("%lf, %lf, %lf\n", (b - a) + (d - c), c - b, d - a);
 
     return 0;
 };

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 
 double c_x_min;
 double c_x_max;
@@ -157,14 +158,30 @@ void compute_mandelbrot(){
     };
 };
 
+static double rtclock() {
+  struct timespec t;
+  clock_gettime(CLOCK_REALTIME, &t);
+  return t.tv_sec + t.tv_nsec * 1e-9;
+}
+
 int main(int argc, char *argv[]){
+    double a = rtclock();
     init(argc, argv);
 
     allocate_image_buffer();
 
+    double b = rtclock();
+
     compute_mandelbrot();
 
+    double c = rtclock();
+    
     write_to_file();
+    
+    double d = rtclock();
+
+    //t1 = alocação, t2 = apenas computar, t3 = tempo total
+    //printf("%lf, %lf, %lf\n", (b - a) + (d - c), c - b, d - a);
 
     return 0;
 };
